@@ -1,16 +1,27 @@
 ﻿using System;
 using UnityEngine;
 using UnityEngine.UI;
-using DG.Tweening;
+using DG.Tweening; 
 
+public enum State
+{
+    pvp,
+    pve,
+    play,
+    gameover,
+    begin
+};
 public class Game_Control : MonoBehaviour {
 
     //Array that holds refrences to the chips themselves, used for displaying and animating them.
+    
     static GameObject[,] boardSpaces = new GameObject[8, 8];
-
+    private State current_state = State.begin;
     //Array to represent the board state, 0 - no chip, 1 - player chip, 2 - AI chip
     static int[,] spaceOwner = new int[8, 8];
-
+    public Button pvp_button;
+    public Button pve_button;
+    
     //Used to keep track of number of valid flips in each direction (clockwise starting at top-left)
     static int[] flipCounts = new int[8];
 
@@ -18,13 +29,16 @@ public class Game_Control : MonoBehaviour {
     public GameObject chip;
     //Record whos turn it is
     static bool playerTurn = true;
+   // static bool player_1_Turn = true;
+   // static bool player_2_Turn = true;
     //Decrement when placing a piece until 0
     private int placesLeft = 60;
 
 
     //Used to display end-game announcements as well as when someone has no moves, etc.
     public Text alert;
-
+    public Image player_1;
+    public Image player_2;
     //Display current scores(chip counts) during the game 
     public Text playerScoreText;
     public Text AIScoreText;
@@ -36,17 +50,35 @@ public class Game_Control : MonoBehaviour {
 
     private int stall = 0;
 
-    private bool gameOver;
+    private bool gameOver = false;
 
     void Start() {
 
         //Initialize 4 starting pieces
+
+        GameEvents.CurrentState += ChangeCurrentState;
+        player_1.gameObject.SetActive(false);
+        player_2.gameObject.SetActive(false);
+        alert.gameObject.SetActive(false);
+        pvp_button.onClick.AddListener(TaskOnClickPVP);
+        pve_button.onClick.AddListener(TaskOnClickPvE);
+        
+        //Flip 2 to black(player)
+
+
+        //Initialize state of board
+
+    }
+    void ChangeCurrentState(State state)
+    {
+        current_state = state;
+    }
+    void StartGame()
+    {
         GameObject black1 = Instantiate(chip, new Vector3((float)(3.5), (float)(-3.5), (float)8.0), transform.rotation);
         GameObject black2 = Instantiate(chip, new Vector3((float)(4.5), (float)(-4.5), (float)8.0), transform.rotation);
         GameObject white1 = Instantiate(chip, new Vector3((float)(3.5), (float)(-4.5), (float)8.0), transform.rotation);
         GameObject white2 = Instantiate(chip, new Vector3((float)(4.5), (float)(-3.5), (float)8.0), transform.rotation);
-
-        //Flip 2 to black(player)
         black1.transform.Rotate(new Vector3(180, 0, 0));
         black2.transform.Rotate(new Vector3(180, 0, 0));
 
@@ -55,8 +87,6 @@ public class Game_Control : MonoBehaviour {
         boardSpaces[4, 4] = black2;
         boardSpaces[3, 4] = white1;
         boardSpaces[4, 3] = white2;
-
-        //Initialize state of board
         spaceOwner[3, 3] = 1;
         spaceOwner[4, 4] = 1;
         spaceOwner[3, 4] = 2;
@@ -65,16 +95,37 @@ public class Game_Control : MonoBehaviour {
         //Initialize animation asset
         DOTween.Init(false, true, LogBehaviour.ErrorsOnly);
     }
+    void TaskOnClickPVP()
+    {
+        GameEvents.CurrentState.Raise(State.pvp);
+        pvp_button.gameObject.SetActive(false);
+        pve_button.gameObject.SetActive(false);
+        player_1.gameObject.SetActive(true);
+        player_2.gameObject.SetActive(true);
+        player_1.GetComponent<Image>().color = Color.yellow;
+        player_2.GetComponent<Image>().color = Color.white;
+        playerTurn = true;
 
-    void Update () {
-
-        //Determine winner if there is one
-        if(gameOver)
+        StartGame();
+    }
+    void TaskOnClickPvE()
+    {
+        GameEvents.CurrentState.Raise(State.pve);
+        pvp_button.gameObject.SetActive(false);
+        pve_button.gameObject.SetActive(false);
+        playerTurn = true;
+        StartGame();
+       // PlayVsAI();
+    }
+    void PlayerVsAI()
+    {
+        
+        if (gameOver)
         {
             int[] scores = scoreBoard(spaceOwner, false);
-
+            alert.gameObject.SetActive(true);
             if (scores[0] > scores[1])
-                alert.text = "You have won the game!";
+                alert.text = "You Win";
             else if (scores[0] == scores[1])
                 alert.text = "It's a draw!";
             else
@@ -84,9 +135,13 @@ public class Game_Control : MonoBehaviour {
         else
         {
             //Check for game over
+            Debug.Log("placesLeft : " + placesLeft);
             if (placesLeft == 0)
             {
+                Debug.Log("gameOver trc : " + gameOver);
+               // GameEvents.CurrentState.Raise(State.gameover);
                 gameOver = true;
+                Debug.Log("gameOver sau : " + gameOver);
                 return;
             }
             //If current side has no possible moves..
@@ -95,12 +150,14 @@ public class Game_Control : MonoBehaviour {
                 int[] scores = scoreBoard(spaceOwner, false);
 
                 //Is it because someone has no chips on the board?
-                if(scores[0] * scores[1] == 0)
+                if (scores[0] * scores[1] == 0)
                 {
+                  //  GameEvents.CurrentState.Raise(State.gameover);
                     gameOver = true;
                 }
-                if(++stall >= 2)
+                if (++stall >= 2)
                 {
+                  //  GameEvents.CurrentState.Raise(State.gameover);
                     gameOver = true;
                 }
                 //Carry on to next player and use alert text to explain to user
@@ -114,7 +171,7 @@ public class Game_Control : MonoBehaviour {
                 return;
             }
             stall = 0;
-            
+
             //User's turn
             if (playerTurn)
             {
@@ -170,6 +227,172 @@ public class Game_Control : MonoBehaviour {
             }
         }
     }
+    void PlayerVsPlayer()
+    {
+        if (gameOver)
+        {
+            int[] scores = scoreBoard(spaceOwner, false);
+            alert.gameObject.SetActive(true);
+            if (scores[0] > scores[1])
+                alert.text = "Player 1 Win";
+            else if (scores[0] == scores[1])
+                alert.text = "It's a draw!";
+            else
+                alert.text = "Player 2 Win";
+            return;
+        }
+        else
+        {
+            //Check for game over
+            if (placesLeft == 0)
+            {
+               // GameEvents.CurrentState.Raise(State.gameover);
+                gameOver = true;
+                return;
+            }
+            //If current side has no possible moves..
+            if (!hasMoves())
+            {
+                int[] scores = scoreBoard(spaceOwner, false);
+
+                //Is it because someone has no chips on the board?
+                if (scores[0] * scores[1] == 0)
+                {
+                //    GameEvents.CurrentState.Raise(State.gameover);
+                    gameOver = true;
+                }
+                if (++stall >= 2)
+                {
+                //    GameEvents.CurrentState.Raise(State.gameover);
+                    gameOver = true;
+                }
+                //Carry on to next player and use alert text to explain to user
+                else
+                {
+                    String player = playerTurn ? "player 1" : "player 2";
+                    alert.text = player + " HAD NO MOVES!";
+                    Invoke("resetAlertText", 2);
+                    playerTurn = !playerTurn;
+                    
+                }
+                return;
+            }
+            stall = 0;
+
+            //User's turn
+            if (playerTurn)
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    Debug.Log("player_1_Turn");
+                    Ray mouse = Camera.main.ScreenPointToRay(Input.mousePosition);
+                    RaycastHit info;
+                    bool hit = Physics.Raycast(mouse, out info, 500.0f);
+
+                    if (hit)
+                    {
+                        int x = (int)Math.Floor(info.point.x);
+                        int yPos = (int)Math.Ceiling(info.point.y);
+                        int y = Math.Abs(yPos);
+
+                        //If we clicked on a valid space
+                        if (x >= 0 && x < 8 &&
+                           yPos <= 0 && y < 8)
+                        {
+                            //If valid move
+                            if (isMove(x, y, spaceOwner))
+                            {
+                                //Visually create piece and animate it down to board
+                                GameObject newPiece = Instantiate(chip, new Vector3((float)(x + .5), (float)(yPos - .5), 0), transform.rotation);
+                                newPiece.transform.Rotate(180, 0, 0); //Make black(user color)
+                                newPiece.transform.DOMoveZ(8, (float).5, true);
+
+                                //Update game state
+                                boardSpaces[x, y] = newPiece;
+                                spaceOwner[x, y] = 1;
+                                placesLeft--;
+
+                                //Do all flips that occured from move
+                                findFlipDirections(x, y, spaceOwner, true);
+                                playerTurn = false;
+                                player_1.GetComponent<Image>().color = Color.white;
+                                player_2.GetComponent<Image>().color = Color.yellow;
+                            }
+                            else
+                            {
+                                Debug.Log("That was not a valid move.");
+                            }
+
+                        }
+                    }
+                    updateScore();
+                }
+            }
+            else
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    Debug.Log("Player 2 Turn");
+                    Ray mouse = Camera.main.ScreenPointToRay(Input.mousePosition);
+                    RaycastHit info;
+                    bool hit = Physics.Raycast(mouse, out info, 500.0f);
+
+                    if (hit)
+                    {
+                        int x = (int)Math.Floor(info.point.x);
+                        int yPos = (int)Math.Ceiling(info.point.y);
+                        int y = Math.Abs(yPos);
+
+                        //If we clicked on a valid space
+                        if (x >= 0 && x < 8 &&
+                           yPos <= 0 && y < 8)
+                        {
+                            //If valid move
+                            if (isMove(x, y, spaceOwner))
+                            {
+                                //Visually create piece and animate it down to board
+
+                                GameObject newPiece = Instantiate(chip, new Vector3((float)(x + .5), (float)(yPos - .5), 0), transform.rotation);
+                                //newPiece.transform.Rotate(180, 0, 0); //Make black(user color)
+                                newPiece.transform.DOMoveZ(8, (float).5, true);
+
+                                //Update game state
+                                boardSpaces[x, y] = newPiece;
+                                spaceOwner[x, y] = 2;
+                                placesLeft--;
+
+                                //Do all flips that occured from move
+                                findFlipDirections(x, y, spaceOwner, true);
+                                playerTurn = true;
+                                player_2.GetComponent<Image>().color = Color.white;
+                                player_1.GetComponent<Image>().color = Color.yellow;
+                            }
+                            else
+                            {
+                                Debug.Log("That was not a valid move.");
+                            }
+
+                        }
+                    }
+                    updateScore();
+                }
+            }
+        }
+    }
+    void Update () {
+
+        //Determine winner if there is one
+        if(current_state == State.pve)
+        {
+            gameOver = false;
+            PlayerVsAI();
+        }
+        if(current_state == State.pvp)
+        {
+            PlayerVsPlayer();
+        }
+
+    }
 
     public void checkDifficulty()
     {
@@ -196,9 +419,18 @@ public class Game_Control : MonoBehaviour {
     //By summing the 1's we have player score and summing 2's we get AI score, using this to avoid incrementing and decrementing bugs when placing/flipping.
     private void updateScore()
     {
-        int[] currentScores = scoreBoard(spaceOwner, false);
-        playerScoreText.text = "Player Score : " + currentScores[0];
-        AIScoreText.text = "AI Score : " + currentScores[1];
+        if(current_state == State.pve)
+        {
+            int[] currentScores = scoreBoard(spaceOwner, false);
+            playerScoreText.text = "Player Score : " + currentScores[0];
+            AIScoreText.text = "AI Score : " + currentScores[1];
+        }
+        if(current_state == State.pvp)
+        {
+            int[] currentScores = scoreBoard(spaceOwner, false);
+            playerScoreText.text = "Player 1 Score : " + currentScores[0];
+            AIScoreText.text = "Player 2 Score : " + currentScores[1];
+        }
     }
 
 
@@ -447,7 +679,7 @@ public class Game_Control : MonoBehaviour {
         else
             return false;
     }
-
+    
     private bool isMyPiece(int x, int y, int[,] board)
     {
         return playerTurn ? board[x, y] == 1 : board[x, y] == 2;
