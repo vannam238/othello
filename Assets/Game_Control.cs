@@ -101,9 +101,9 @@ public class Game_Control : MonoBehaviour {
         pvp_button.gameObject.SetActive(false);
         pve_button.gameObject.SetActive(false);
         player_1.gameObject.SetActive(true);
-        player_2.gameObject.SetActive(true);
-        player_1.GetComponent<Image>().color = Color.yellow;
-        player_2.GetComponent<Image>().color = Color.white;
+        //player_2.gameObject.SetActive(true);
+        //player_1.GetComponent<Image>().color = Color.yellow;
+        //player_2.GetComponent<Image>().color = Color.white;
         playerTurn = true;
 
         StartGame();
@@ -315,8 +315,8 @@ public class Game_Control : MonoBehaviour {
                                 //Do all flips that occured from move
                                 findFlipDirections(x, y, spaceOwner, true);
                                 playerTurn = false;
-                                player_1.GetComponent<Image>().color = Color.white;
-                                player_2.GetComponent<Image>().color = Color.yellow;
+                                player_1.gameObject.SetActive(false);
+                                player_2.gameObject.SetActive(true);
                             }
                             else
                             {
@@ -364,8 +364,8 @@ public class Game_Control : MonoBehaviour {
                                 //Do all flips that occured from move
                                 findFlipDirections(x, y, spaceOwner, true);
                                 playerTurn = true;
-                                player_2.GetComponent<Image>().color = Color.white;
-                                player_1.GetComponent<Image>().color = Color.yellow;
+                                player_1.gameObject.SetActive(true);
+                                player_2.gameObject.SetActive(false);
                             }
                             else
                             {
